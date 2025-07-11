@@ -1,60 +1,35 @@
 package webhook
 
+//https://developers.facebook.com/apps/1030673848841803/whatsapp-business/wa-settings/?business_id=2467686813608135&phone_number_id=
+
 import (
-	"encoding/json"
-	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"os"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 var verifyToken = os.Getenv("CALLBACK_VERIFY_TOKEN")
 
-func WebhookHandler(w http.ResponseWriter, r *http.Request) {
+func WebhookHandler(c *fiber.Ctx) error {
+	log.Println("Webhook-Anfrage erhalten:", c.Method(), c.OriginalURL())
 
-	log.Println("Webhook-Anfrage erhalten:", r.Method, r.URL.Path)
-	if r.Method == http.MethodGet {
+	if c.Method() == fiber.MethodGet {
 		// Meta Webhook-Verifizierung
-		mode := r.URL.Query().Get("hub.mode")
-		token := r.URL.Query().Get("hub.verify_token")
-		challenge := r.URL.Query().Get("hub.challenge")
+		mode := c.Query("hub.mode")
+		token := c.Query("hub.verify_token")
+		challenge := c.Query("hub.challenge")
 
-		if mode == "subscribe" && token == verifyToken {
-			fmt.Fprint(w, challenge)
-			log.Println("Webhook-Verifizierung erfolgreich")
-			return
-		}
-
-		http.Error(w, "Unauthorized", http.StatusForbidden)
-		log.Println("Webhook-Verifizierung fehlgeschlagen")
-		return
-	}
-
-	if r.Method == http.MethodPost {
-		// Eingehende WhatsApp-Nachricht
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "could not read body", http.StatusBadRequest)
-			return
-		}
-
-		// Debug: Rohdaten anzeigen
-		fmt.Println("📥 Eingehende Nachricht:")
-		fmt.Println(string(body))
-
-		// Optional: JSON parsen (wenn du strukturierte Daten willst)
-		var payload map[string]interface{}
-		if err := json.Unmarshal(body, &payload); err != nil {
-			log.Println("JSON-Fehler:", err)
+		if mode == "subscribe" && token == "DEIN_VERIFY_TOKEN" {
+			log.Println("Webhook verifiziert")
+			return c.SendString(challenge)
 		} else {
-			log.Printf("Nachricht empfangen von %+v\n", payload)
+			log.Println("Webhook-Verifizierung fehlgeschlagen")
+			return c.SendStatus(fiber.StatusForbidden)
 		}
-
-		w.WriteHeader(http.StatusOK)
-		return
 	}
 
-	// Andere Methoden nicht erlaubt
-	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-} 
+	// POST oder andere Methoden: hier kannst du JSON oder andere Daten verarbeiten
+	log.Println("Webhook-POST-Verarbeitung (nicht implementiert)")
+	return c.SendStatus(fiber.StatusOK)
+}

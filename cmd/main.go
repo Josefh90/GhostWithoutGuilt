@@ -3,14 +3,14 @@ package main
 import (
 	"fmt"
 	"log"
-	"net/http"
-	"os"
 
+	rod "github.com/Josefh90/GhostWithoutGuilt/internal/rod"
+	"github.com/Josefh90/GhostWithoutGuilt/internal/routes"
 	webhook "github.com/Josefh90/GhostWithoutGuilt/internal/webhooks"
-	"github.com/Josefh90/GhostWithoutGuilt/internal/whatsapp"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
 )
-
 
 func init() {
 	// This runs before main()
@@ -20,43 +20,39 @@ func init() {
 	}
 }
 
-
 func main() {
-	accessToken := os.Getenv("WHATSAPP_ACCESS_TOKEN")
+	/* 	accessToken := os.Getenv("WHATSAPP_ACCESS_TOKEN")
 
-	fmt.Println("Access Token:", accessToken)
+	   	if accessToken == "" {
+	   		log.Fatal("WHATSAPP_ACCESS_TOKEN environment variable not set")
+	   	}
+	   	phoneNumberID := os.Getenv("WHATSAPP_PHONE_NUMBER_ID")
+	   	if phoneNumberID == "" {
+	   		log.Fatal("WHATSAPP_PHONE_NUMBER_ID environment variable not set")
+	   	}
+	   	// Optional: My phone number for sending messages
+	   	myPhoneNumber := os.Getenv("My_PHONE_NUMBER")
+	   	if myPhoneNumber == "" {
+	   		log.Fatal("My_PHONE_NUMBER environment variable not set")
+	   	} */
 
+	//client := whatsapp.NewClient(accessToken, phoneNumberID)
 
-	if accessToken == "" {
-		log.Fatal("WHATSAPP_ACCESS_TOKEN environment variable not set")
-	}
-	phoneNumberID := os.Getenv("WHATSAPP_PHONE_NUMBER_ID")
-	if phoneNumberID == "" {
-		log.Fatal("WHATSAPP_PHONE_NUMBER_ID environment variable not set")
-	}
-	// Optional: My phone number for sending messages
-	myPhoneNumber := os.Getenv("My_PHONE_NUMBER")
-	if myPhoneNumber == "" {
-		log.Fatal("My_PHONE_NUMBER environment variable not set")
-	}
+	// Fiber App initialisieren
+	rod.Launch()
 
+	app := fiber.New()
 
-	client := whatsapp.NewClient(accessToken, phoneNumberID)
+	// Middleware: Logging
+	app.Use(logger.New())
+	routes.SetupRoutes(app)
+	//http.HandleFunc("/webhook", webhook.WebhookHandler)
 
-
-	http.HandleFunc("/send", func(w http.ResponseWriter, r *http.Request) {
-		err := client.SendTextMessage(myPhoneNumber, "Hallo ich bin die Super Josi KI!")
-
-		if err != nil {
-			
-			http.Error(w, "Fehler beim Senden der Nachricht: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		fmt.Fprintln(w, "Nachricht erfolgreich gesendet!")
+	// Webhook-Route mit Fiber
+	app.Post("/webhook", func(c *fiber.Ctx) error {
+		return webhook.WebhookHandler(c)
 	})
 
-
-	http.HandleFunc("/webhook", webhook.WebhookHandler)
 	fmt.Println("Server läuft auf http://localhost:6969")
-	log.Fatal(http.ListenAndServe(":6969", nil))
+	log.Fatal(app.Listen(":6969"))
 }
